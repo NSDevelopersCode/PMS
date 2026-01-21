@@ -9,7 +9,10 @@ namespace PMS.API.Models
         PriorityChanged,
         Resolved,
         Closed,
-        Reopened
+        Reopened,
+        Archived,
+        Unarchived,
+        AttachmentAdded
     }
 
     /// <summary>

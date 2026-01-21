@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PMS.API.Data;
@@ -11,9 +12,11 @@ using PMS.API.Data;
 namespace PMS.API.Migrations
 {
     [DbContext(typeof(PmsDbContext))]
-    partial class PmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260119083247_AddTicketAttachments")]
+    partial class AddTicketAttachments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

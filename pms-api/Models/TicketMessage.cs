@@ -13,5 +13,6 @@ namespace PMS.API.Models
         // Navigation properties
         public Ticket Ticket { get; set; } = null!;
         public User Sender { get; set; } = null!;
+        public ICollection<TicketAttachment> Attachments { get; set; } = new List<TicketAttachment>();
     }
 }

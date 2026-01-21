@@ -14,6 +14,8 @@ namespace PMS.API.Data
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<TicketHistory> TicketHistories { get; set; }
         public DbSet<TicketMessage> TicketMessages { get; set; }
+        public DbSet<TicketAttachment> TicketAttachments { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -100,6 +102,43 @@ namespace PMS.API.Data
                     .WithMany()
                     .HasForeignKey(e => e.SenderId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // TicketAttachment configuration
+            modelBuilder.Entity<TicketAttachment>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.StoredFileName).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.ContentType).IsRequired().HasMaxLength(100);
+
+                entity.HasOne(e => e.TicketMessage)
+                    .WithMany(m => m.Attachments)
+                    .HasForeignKey(e => e.TicketMessageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.UploadedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.UploadedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Notification configuration
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Type).HasConversion<string>();
+                entity.Property(e => e.Message).IsRequired().HasMaxLength(500);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.RelatedTicket)
+                    .WithMany()
+                    .HasForeignKey(e => e.RelatedTicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

@@ -1,21 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getTicketById, getTicketMessages, sendTicketMessage, updateTicketStatus, closeTicket } from '../services/ticketService';
+import { getTicketById, getTicketMessages, sendTicketMessage, updateTicketStatus, closeTicket, reopenTicket, downloadAttachment } from '../services/ticketService';
+
+// Allowed file extensions
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf', '.txt', '.log', '.json'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_OTHER_SIZE = 2 * 1024 * 1024; // 2MB
 
 function TicketDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const [ticket, setTicket] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [reopenComment, setReopenComment] = useState('');
+    // Close modal with optional rating
+    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [rating, setRating] = useState(0);  // 0 = not rated, 1-5 = rating
+    const [ratingComment, setRatingComment] = useState('');
 
     const isEndUser = user?.role === 'EndUser';
     const isDeveloper = user?.role === 'Developer';
@@ -47,18 +60,60 @@ function TicketDetails() {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || sending) return;
+        if ((!newMessage.trim() && selectedFiles.length === 0) || sending) return;
 
         setSending(true);
         try {
-            await sendTicketMessage(id, newMessage.trim());
+            await sendTicketMessage(id, newMessage.trim() || null, selectedFiles);
             setNewMessage('');
+            setSelectedFiles([]);
+            if (fileInputRef.current) fileInputRef.current.value = '';
             const updatedMessages = await getTicketMessages(id);
             setMessages(updatedMessages);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to send message');
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        const validFiles = [];
+
+        for (const file of files) {
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(ext)) {
+                setError(`File type ${ext} is not allowed`);
+                continue;
+            }
+            const isImage = file.type.startsWith('image/');
+            const maxSize = isImage ? MAX_IMAGE_SIZE : MAX_OTHER_SIZE;
+            if (file.size > maxSize) {
+                setError(`File ${file.name} exceeds ${isImage ? '5MB' : '2MB'} limit`);
+                continue;
+            }
+            validFiles.push(file);
+        }
+        setSelectedFiles(prev => [...prev, ...validFiles]);
+    };
+
+    const removeFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleDownload = async (attachment) => {
+        try {
+            const { url, filename } = await downloadAttachment(attachment.id);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = attachment.originalFileName || filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setError('Failed to download file');
         }
     };
 
@@ -77,10 +132,51 @@ function TicketDetails() {
     const handleClose = async () => {
         setActionLoading(true);
         try {
-            await closeTicket(id, 'Ticket closed');
+            const closeData = {
+                comments: 'Ticket accepted and closed'
+            };
+            // Only include rating if user provided one
+            if (rating > 0) {
+                closeData.satisfactionScore = rating;
+                closeData.satisfactionComment = ratingComment.trim();
+            }
+            await closeTicket(id, closeData);
+            setShowCloseModal(false);
+            setRating(0);
+            setRatingComment('');
             await fetchData();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to close ticket');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleReopen = async () => {
+        if (!reopenComment.trim()) {
+            setError('Please provide a reason for requesting changes');
+            return;
+        }
+        setActionLoading(true);
+        try {
+            await reopenTicket(id, reopenComment.trim());
+            setShowReopenModal(false);
+            setReopenComment('');
+            await fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to reopen ticket');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleStartProgress = async () => {
+        setActionLoading(true);
+        try {
+            await updateTicketStatus(id, 'InProgress', 'Started working on reopened ticket');
+            await fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update status');
         } finally {
             setActionLoading(false);
         }
@@ -91,6 +187,7 @@ function TicketDetails() {
             Open: 'bg-blue-100 text-blue-700',
             InProgress: 'bg-yellow-100 text-yellow-700',
             Resolved: 'bg-green-100 text-green-700',
+            Reopened: 'bg-purple-100 text-purple-700',
             Closed: 'bg-gray-100 text-gray-700',
         };
         return styles[status] || 'bg-gray-100 text-gray-700';
@@ -107,8 +204,21 @@ function TicketDetails() {
     };
 
     const isClosed = ticket?.status === 'Closed';
-    const canResolve = isDeveloper && ticket?.status === 'InProgress';
-    const canClose = (isEndUser || isAdmin) && ticket?.status === 'Resolved';
+    const isResolved = ticket?.status === 'Resolved';
+    const isReopened = ticket?.status === 'Reopened';
+    const isInProgress = ticket?.status === 'InProgress';
+    const isArchived = ticket?.isArchived === true;
+
+    // Developer can resolve when InProgress, or start progress on Reopened tickets (not archived)
+    const canResolve = isDeveloper && isInProgress && !isArchived;
+    const canStartProgress = isDeveloper && isReopened && !isArchived;
+
+    // EndUser can Accept & Close OR Request Changes when Resolved (not archived)
+    const canAcceptClose = isEndUser && isResolved && !isArchived;
+    const canRequestChanges = isEndUser && isResolved && !isArchived;
+
+    // Admin can close resolved tickets (not archived)
+    const canAdminClose = isAdmin && isResolved && !isArchived;
 
     if (loading) {
         return (
@@ -149,6 +259,14 @@ function TicketDetails() {
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                         {error}
                         <button onClick={() => setError('')} className="ml-2">×</button>
+                    </div>
+                )}
+
+                {/* Archived Banner */}
+                {isArchived && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+                        <span className="text-lg">📦</span>
+                        <span>This ticket is archived and read-only. No actions can be performed.</span>
                     </div>
                 )}
 
@@ -195,8 +313,19 @@ function TicketDetails() {
                         </div>
 
                         {/* Action Buttons */}
-                        {(canResolve || canClose) && (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        {!isClosed && (canResolve || canStartProgress || canAcceptClose || canRequestChanges || canAdminClose) && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+                                {/* Developer: Start Progress on Reopened ticket */}
+                                {canStartProgress && (
+                                    <button
+                                        onClick={handleStartProgress}
+                                        disabled={actionLoading}
+                                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                    >
+                                        {actionLoading ? 'Updating...' : '▶ Start Progress'}
+                                    </button>
+                                )}
+                                {/* Developer: Resolve when InProgress */}
                                 {canResolve && (
                                     <button
                                         onClick={handleResolve}
@@ -206,7 +335,28 @@ function TicketDetails() {
                                         {actionLoading ? 'Resolving...' : '✓ Mark as Resolved'}
                                     </button>
                                 )}
-                                {canClose && (
+                                {/* EndUser: Accept & Close */}
+                                {canAcceptClose && (
+                                    <button
+                                        onClick={() => setShowCloseModal(true)}
+                                        disabled={actionLoading}
+                                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                    >
+                                        {actionLoading ? 'Closing...' : '✓ Accept & Close'}
+                                    </button>
+                                )}
+                                {/* EndUser: Request Changes */}
+                                {canRequestChanges && (
+                                    <button
+                                        onClick={() => setShowReopenModal(true)}
+                                        disabled={actionLoading}
+                                        className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                    >
+                                        ↺ Request Changes
+                                    </button>
+                                )}
+                                {/* Admin: Close resolved ticket */}
+                                {canAdminClose && (
                                     <button
                                         onClick={handleClose}
                                         disabled={actionLoading}
@@ -242,16 +392,53 @@ function TicketDetails() {
                                             >
                                                 <div className={`max-w-[75%] ${isOwnMessage ? 'order-2' : ''}`}>
                                                     <div className={`px-4 py-2 rounded-2xl ${isOwnMessage
-                                                            ? 'bg-indigo-600 text-white rounded-br-md'
-                                                            : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                                                        ? 'bg-indigo-600 text-white rounded-br-md'
+                                                        : 'bg-gray-100 text-gray-900 rounded-bl-md'
                                                         }`}>
-                                                        <p className="text-sm">{msg.message}</p>
+                                                        {msg.message && <p className="text-sm">{msg.message}</p>}
+                                                        {/* Attachments */}
+                                                        {msg.attachments && msg.attachments.length > 0 && (
+                                                            <div className={`mt-2 space-y-2 ${!msg.message ? 'pt-0' : ''}`}>
+                                                                {msg.attachments.map(att => {
+                                                                    const isImage = att.contentType?.startsWith('image/');
+                                                                    return (
+                                                                        <div key={att.id} className="flex items-center gap-2">
+                                                                            {isImage ? (
+                                                                                <button
+                                                                                    onClick={() => handleDownload(att)}
+                                                                                    className={`block rounded-lg overflow-hidden border ${isOwnMessage ? 'border-indigo-400' : 'border-gray-300'} hover:opacity-80 transition-opacity`}
+                                                                                >
+                                                                                    <div className="flex items-center gap-2 p-2">
+                                                                                        <span className="text-lg">🖼️</span>
+                                                                                        <span className={`text-xs ${isOwnMessage ? 'text-indigo-100' : 'text-gray-600'}`}>
+                                                                                            {att.originalFileName}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </button>
+                                                                            ) : (
+                                                                                <button
+                                                                                    onClick={() => handleDownload(att)}
+                                                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isOwnMessage
+                                                                                            ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
+                                                                                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                                                        }`}
+                                                                                >
+                                                                                    <span>📎</span>
+                                                                                    <span className="max-w-[150px] truncate">{att.originalFileName}</span>
+                                                                                    <span className="opacity-70">({(att.fileSize / 1024).toFixed(1)}KB)</span>
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className={`flex items-center gap-2 mt-1 text-xs ${isOwnMessage ? 'justify-end' : ''}`}>
                                                         <span className="text-gray-500">{msg.senderName}</span>
                                                         <span className={`px-1.5 py-0.5 rounded text-xs ${msg.senderRole === 'Developer' ? 'bg-blue-50 text-blue-600' :
-                                                                msg.senderRole === 'Admin' ? 'bg-red-50 text-red-600' :
-                                                                    'bg-green-50 text-green-600'
+                                                            msg.senderRole === 'Admin' ? 'bg-red-50 text-red-600' :
+                                                                'bg-green-50 text-green-600'
                                                             }`}>
                                                             {msg.senderRole}
                                                         </span>
@@ -268,32 +455,184 @@ function TicketDetails() {
                             </div>
 
                             {/* Message Input */}
-                            {isClosed ? (
+                            {(isClosed || isArchived) ? (
                                 <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 text-center text-gray-500 text-sm">
-                                    This ticket is closed. Chat is read-only.
+                                    {isArchived ? 'This ticket is archived.' : 'This ticket is closed.'} Chat is read-only.
                                 </div>
                             ) : (
-                                <form onSubmit={handleSendMessage} className="px-4 py-3 border-t border-gray-200 flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={newMessage}
-                                        onChange={(e) => setNewMessage(e.target.value)}
-                                        placeholder="Type a message..."
-                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={!newMessage.trim() || sending}
-                                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-5 py-2 rounded-full font-medium text-sm transition-colors"
-                                    >
-                                        {sending ? '...' : 'Send'}
-                                    </button>
-                                </form>
+                                <div className="border-t border-gray-200">
+                                    {/* Selected Files Preview */}
+                                    {selectedFiles.length > 0 && (
+                                        <div className="px-4 py-2 bg-gray-50 flex flex-wrap gap-2">
+                                            {selectedFiles.map((file, index) => (
+                                                <div key={index} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs">
+                                                    <span>{file.type.startsWith('image/') ? '🖼️' : '📎'}</span>
+                                                    <span className="max-w-[100px] truncate">{file.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeFile(index)}
+                                                        className="text-gray-400 hover:text-red-500 ml-1"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <form onSubmit={handleSendMessage} className="px-4 py-3 flex gap-2">
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={handleFileSelect}
+                                            multiple
+                                            accept=".png,.jpg,.jpeg,.pdf,.txt,.log,.json"
+                                            className="hidden"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-colors"
+                                            title="Attach file"
+                                        >
+                                            📎
+                                        </button>
+                                        <input
+                                            type="text"
+                                            value={newMessage}
+                                            onChange={(e) => setNewMessage(e.target.value)}
+                                            placeholder="Type a message..."
+                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm"
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
+                                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-5 py-2 rounded-full font-medium text-sm transition-colors"
+                                        >
+                                            {sending ? '...' : 'Send'}
+                                        </button>
+                                    </form>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             </main>
+
+            {/* Reopen Modal */}
+            {showReopenModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Request Changes</h3>
+                        <p className="text-gray-600 mb-4 text-sm">
+                            Please describe why you are requesting changes. This will reopen the ticket for the developer.
+                        </p>
+
+                        <textarea
+                            value={reopenComment}
+                            onChange={(e) => setReopenComment(e.target.value)}
+                            placeholder="Explain what needs valid fix or changes..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none mb-6 h-32 resize-none"
+                            autoFocus
+                        />
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowReopenModal(false);
+                                    setReopenComment('');
+                                }}
+                                disabled={actionLoading}
+                                className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReopen}
+                                disabled={!reopenComment.trim() || actionLoading}
+                                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white font-medium rounded-lg transition-colors"
+                            >
+                                {actionLoading ? 'Submitting...' : 'Submit Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Close Modal with Optional Rating */}
+            {showCloseModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-4">Accept & Close Ticket</h3>
+                        <p className="text-gray-600 mb-6 text-sm">
+                            The ticket will be marked as closed. You can optionally rate your experience.
+                        </p>
+
+                        {/* Star Rating */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                How satisfied are you? <span className="text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <div className="flex gap-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setRating(rating === star ? 0 : star)}
+                                        className={`text-3xl transition-colors ${rating >= star ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-200'}`}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                            </div>
+                            {rating > 0 && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {rating === 1 && 'Poor'}
+                                    {rating === 2 && 'Fair'}
+                                    {rating === 3 && 'Good'}
+                                    {rating === 4 && 'Very Good'}
+                                    {rating === 5 && 'Excellent'}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Comment */}
+                        {rating > 0 && (
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Any feedback? <span className="text-gray-400 font-normal">(optional)</span>
+                                </label>
+                                <textarea
+                                    value={ratingComment}
+                                    onChange={(e) => setRatingComment(e.target.value)}
+                                    placeholder="Share your thoughts about this resolution..."
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none h-24 resize-none"
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowCloseModal(false);
+                                    setRating(0);
+                                    setRatingComment('');
+                                }}
+                                disabled={actionLoading}
+                                className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleClose}
+                                disabled={actionLoading}
+                                className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg transition-colors"
+                            >
+                                {actionLoading ? 'Closing...' : 'Close Ticket'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

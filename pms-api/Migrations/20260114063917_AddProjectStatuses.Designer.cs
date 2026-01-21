@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PMS.API.Data;
@@ -11,9 +12,11 @@ using PMS.API.Data;
 namespace PMS.API.Migrations
 {
     [DbContext(typeof(PmsDbContext))]
-    partial class PmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260114063917_AddProjectStatuses")]
+    partial class AddProjectStatuses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,44 +24,6 @@ namespace PMS.API.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("PMS.API.Models.Notification", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("RelatedTicketId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RelatedTicketId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Notifications");
-                });
 
             modelBuilder.Entity("PMS.API.Models.Project", b =>
                 {
@@ -93,7 +58,7 @@ namespace PMS.API.Migrations
                     b.ToTable("Projects");
                 });
 
-            modelBuilder.Entity("PMS.API.Models.Ticket", b =>
+            modelBuilder.Entity("PMS.API.Models.ProjectStatus", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -101,11 +66,37 @@ namespace PMS.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("ArchivedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int?>("ArchivedByUserId")
+                    b.Property<bool>("IsFinal")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Order")
                         .HasColumnType("integer");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("ProjectStatuses");
+                });
+
+            modelBuilder.Entity("PMS.API.Models.Ticket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("AssignedAt")
                         .HasColumnType("timestamp with time zone");
@@ -129,9 +120,6 @@ namespace PMS.API.Migrations
                     b.Property<DateTime?>("InProgressAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("IsArchived")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("text");
@@ -139,23 +127,8 @@ namespace PMS.API.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("RatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ReopenCount")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ReopenedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime?>("ResolvedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SatisfactionComment")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("SatisfactionScore")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -182,50 +155,6 @@ namespace PMS.API.Migrations
                     b.HasIndex("ProjectId");
 
                     b.ToTable("Tickets");
-                });
-
-            modelBuilder.Entity("PMS.API.Models.TicketAttachment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("TicketMessageId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("UploadedByUserId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TicketMessageId");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("TicketAttachments");
                 });
 
             modelBuilder.Entity("PMS.API.Models.TicketHistory", b =>
@@ -342,30 +271,22 @@ namespace PMS.API.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("PMS.API.Models.Notification", b =>
-                {
-                    b.HasOne("PMS.API.Models.Ticket", "RelatedTicket")
-                        .WithMany()
-                        .HasForeignKey("RelatedTicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PMS.API.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("RelatedTicket");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("PMS.API.Models.Project", b =>
                 {
                     b.HasOne("PMS.API.Models.User", null)
                         .WithMany("CreatedProjects")
                         .HasForeignKey("UserId");
+                });
+
+            modelBuilder.Entity("PMS.API.Models.ProjectStatus", b =>
+                {
+                    b.HasOne("PMS.API.Models.Project", "Project")
+                        .WithMany("ProjectStatuses")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("PMS.API.Models.Ticket", b =>
@@ -392,25 +313,6 @@ namespace PMS.API.Migrations
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("Project");
-                });
-
-            modelBuilder.Entity("PMS.API.Models.TicketAttachment", b =>
-                {
-                    b.HasOne("PMS.API.Models.TicketMessage", "TicketMessage")
-                        .WithMany("Attachments")
-                        .HasForeignKey("TicketMessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PMS.API.Models.User", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("TicketMessage");
-
-                    b.Navigation("UploadedByUser");
                 });
 
             modelBuilder.Entity("PMS.API.Models.TicketHistory", b =>
@@ -453,12 +355,9 @@ namespace PMS.API.Migrations
 
             modelBuilder.Entity("PMS.API.Models.Project", b =>
                 {
-                    b.Navigation("Tickets");
-                });
+                    b.Navigation("ProjectStatuses");
 
-            modelBuilder.Entity("PMS.API.Models.TicketMessage", b =>
-                {
-                    b.Navigation("Attachments");
+                    b.Navigation("Tickets");
                 });
 
             modelBuilder.Entity("PMS.API.Models.User", b =>

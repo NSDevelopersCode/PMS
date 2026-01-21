@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getTickets, getTicketStats, assignTicket } from '../services/ticketService';
+import { getTickets, getTicketStats, assignTicket, archiveTicket, unarchiveTicket } from '../services/ticketService';
 import { getDevelopers } from '../services/userService';
 import { getProjects, createProject } from '../services/projectService';
+import NotificationBell from '../components/NotificationBell';
+import TicketFilters from '../components/TicketFilters';
+import Pagination from '../components/Pagination';
 
 function AdminDashboard() {
     const { user, logout } = useAuth();
@@ -20,6 +23,7 @@ function AdminDashboard() {
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [selectedDeveloper, setSelectedDeveloper] = useState('');
     const [assigning, setAssigning] = useState(false);
+    const [assignError, setAssignError] = useState('');
 
     // Project modal state
     const [showProjectModal, setShowProjectModal] = useState(false);
@@ -27,10 +31,41 @@ function AdminDashboard() {
     const [newProjectDesc, setNewProjectDesc] = useState('');
     const [creatingProject, setCreatingProject] = useState(false);
 
+    // Filter and pagination state
+    const [filters, setFilters] = useState({ search: '', status: 'All', priority: 'All' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [showArchived, setShowArchived] = useState(false);
+    const [archiveConfirm, setArchiveConfirm] = useState(null); // ticket to archive (for confirmation)
+    const ITEMS_PER_PAGE = 10;
+
+    // Filter tickets
+    const filteredTickets = useMemo(() => {
+        return tickets.filter(ticket => {
+            const matchesSearch = !filters.search ||
+                ticket.title.toLowerCase().includes(filters.search.toLowerCase());
+            const matchesStatus = filters.status === 'All' || ticket.status === filters.status;
+            const matchesPriority = filters.priority === 'All' || ticket.priority === filters.priority;
+            return matchesSearch && matchesStatus && matchesPriority;
+        });
+    }, [tickets, filters]);
+
+    // Paginated tickets
+    const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
+    const paginatedTickets = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredTickets.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredTickets, currentPage]);
+
+    // Reset page when filters change
+    const handleFilterChange = (newFilters) => {
+        setFilters(newFilters);
+        setCurrentPage(1);
+    };
+
     const fetchData = async () => {
         try {
             const [ticketData, devData, projectData] = await Promise.all([
-                getTickets(),
+                getTickets(showArchived),
                 getDevelopers().catch(() => []), // May fail if no devs exist
                 getProjects()
             ]);
@@ -46,9 +81,43 @@ function AdminDashboard() {
         }
     };
 
+    // Handle archive toggle change
+    const handleToggleArchived = () => {
+        setShowArchived(!showArchived);
+        setCurrentPage(1);
+    };
+
+    // Show archive confirmation
+    const handleArchive = (ticket) => {
+        setArchiveConfirm(ticket);
+    };
+
+    // Confirm and execute archive
+    const confirmArchive = async () => {
+        if (!archiveConfirm) return;
+        try {
+            await archiveTicket(archiveConfirm.id);
+            setArchiveConfirm(null);
+            await fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to archive ticket');
+            setArchiveConfirm(null);
+        }
+    };
+
+    // Unarchive a ticket
+    const handleUnarchive = async (ticketId) => {
+        try {
+            await unarchiveTicket(ticketId);
+            await fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to unarchive ticket');
+        }
+    };
+
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [showArchived]);
 
     const handleLogout = () => {
         logout();
@@ -58,6 +127,7 @@ function AdminDashboard() {
     const openAssignModal = (ticket) => {
         setSelectedTicket(ticket);
         setSelectedDeveloper(ticket.assignedDeveloperId?.toString() || '');
+        setAssignError('');
         setShowAssignModal(true);
     };
 
@@ -65,6 +135,7 @@ function AdminDashboard() {
         if (!selectedDeveloper || !selectedTicket) return;
 
         setAssigning(true);
+        setAssignError('');
         try {
             await assignTicket(selectedTicket.id, parseInt(selectedDeveloper));
             setShowAssignModal(false);
@@ -72,7 +143,7 @@ function AdminDashboard() {
             setLoading(true);
             await fetchData();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to assign ticket');
+            setAssignError(err.response?.data?.message || 'Failed to assign ticket');
         } finally {
             setAssigning(false);
         }
@@ -131,6 +202,7 @@ function AdminDashboard() {
                         >
                             Manage Users
                         </a>
+                        <NotificationBell basePath="/admin" />
                         <div className="flex items-center gap-2">
                             <span className="text-gray-700 font-medium">{user?.name}</span>
                             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
@@ -174,7 +246,28 @@ function AdminDashboard() {
                 {/* Tickets Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900">All Tickets</h2>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-lg font-semibold text-gray-900">
+                                    {showArchived ? 'Archived Tickets' : 'All Tickets'}
+                                </h2>
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={showArchived}
+                                            onChange={handleToggleArchived}
+                                            className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                        />
+                                        Show Archived
+                                    </label>
+                                    <span className="text-sm text-gray-500">
+                                        Showing {paginatedTickets.length} of {filteredTickets.length} tickets
+                                    </span>
+                                </div>
+                            </div>
+                            <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
+                        </div>
                     </div>
 
                     {loading ? (
@@ -202,6 +295,7 @@ function AdminDashboard() {
                                     <tr>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Project</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
@@ -209,10 +303,11 @@ function AdminDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {tickets.map((ticket) => (
+                                    {paginatedTickets.map((ticket) => (
                                         <tr key={ticket.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 text-sm text-gray-900">#{ticket.id}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900 font-medium">{ticket.title}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">{ticket.projectName || '—'}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(ticket.status)}`}>
                                                     {ticket.status}
@@ -227,19 +322,48 @@ function AdminDashboard() {
                                                 {ticket.assignedDeveloperName || <span className="text-orange-500">Unassigned</span>}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {ticket.status !== 'Closed' && (
-                                                    <button
-                                                        onClick={() => openAssignModal(ticket)}
-                                                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                                    >
-                                                        {ticket.assignedDeveloperId ? 'Reassign' : 'Assign'}
-                                                    </button>
-                                                )}
+                                                <div className="flex gap-2">
+                                                    {ticket.status !== 'Closed' && !ticket.isArchived && (
+                                                        <button
+                                                            onClick={() => openAssignModal(ticket)}
+                                                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors"
+                                                        >
+                                                            {ticket.assignedDeveloperId ? 'Reassign' : 'Assign'}
+                                                        </button>
+                                                    )}
+                                                    {ticket.status === 'Closed' && !ticket.isArchived && (
+                                                        <button
+                                                            onClick={() => handleArchive(ticket)}
+                                                            className="bg-gray-500 hover:bg-gray-600 text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors"
+                                                        >
+                                                            Archive
+                                                        </button>
+                                                    )}
+                                                    {ticket.isArchived && (
+                                                        <button
+                                                            onClick={() => handleUnarchive(ticket.id)}
+                                                            className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors"
+                                                        >
+                                                            Unarchive
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {!loading && filteredTickets.length > 0 && (
+                        <div className="px-6 py-4 border-t border-gray-200">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                            />
                         </div>
                     )}
                 </div>
@@ -275,6 +399,12 @@ function AdminDashboard() {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+                        )}
+
+                        {assignError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                                {assignError}
                             </div>
                         )}
 
@@ -357,6 +487,35 @@ function AdminDashboard() {
                                 className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Archive Confirmation Modal */}
+            {archiveConfirm && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Archive Ticket?</h3>
+                        <p className="text-gray-600 mb-4">
+                            Are you sure you want to archive ticket <strong>#{archiveConfirm.id}</strong> - "{archiveConfirm.title}"?
+                        </p>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Archived tickets are hidden from default views and become read-only. You can unarchive them later.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setArchiveConfirm(null)}
+                                className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmArchive}
+                                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Archive
                             </button>
                         </div>
                     </div>

@@ -11,6 +11,7 @@ namespace PMS.API.Models
         Open,
         InProgress,
         Resolved,
+        Reopened,
         Closed
     }
 
@@ -37,7 +38,21 @@ namespace PMS.API.Models
         public DateTime? AssignedAt { get; set; }
         public DateTime? InProgressAt { get; set; }
         public DateTime? ResolvedAt { get; set; }
+        public DateTime? ReopenedAt { get; set; }
         public DateTime? ClosedAt { get; set; }
+        
+        // Reopen tracking for analytics
+        public int ReopenCount { get; set; } = 0;
+
+        // Optional satisfaction rating (collected on close)
+        public int? SatisfactionScore { get; set; }  // 1-5, nullable
+        public string? SatisfactionComment { get; set; }
+        public DateTime? RatedAt { get; set; }
+
+        // Archiving (Admin-controlled)
+        public bool IsArchived { get; set; } = false;
+        public DateTime? ArchivedAt { get; set; }
+        public int? ArchivedByUserId { get; set; }
 
         // Foreign keys
         public int ProjectId { get; set; }

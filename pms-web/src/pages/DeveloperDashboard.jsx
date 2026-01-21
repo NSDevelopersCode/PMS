@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getTickets, updateTicketStatus } from '../services/ticketService';
+import NotificationBell from '../components/NotificationBell';
+import TicketFilters from '../components/TicketFilters';
+import Pagination from '../components/Pagination';
 
 function DeveloperDashboard() {
     const { user, logout } = useAuth();
@@ -10,6 +13,35 @@ function DeveloperDashboard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [resolvingId, setResolvingId] = useState(null);
+
+    // Filter and pagination state
+    const [filters, setFilters] = useState({ search: '', status: 'All', priority: 'All' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+
+    // Filter tickets
+    const filteredTickets = useMemo(() => {
+        return tickets.filter(ticket => {
+            const matchesSearch = !filters.search ||
+                ticket.title.toLowerCase().includes(filters.search.toLowerCase());
+            const matchesStatus = filters.status === 'All' || ticket.status === filters.status;
+            const matchesPriority = filters.priority === 'All' || ticket.priority === filters.priority;
+            return matchesSearch && matchesStatus && matchesPriority;
+        });
+    }, [tickets, filters]);
+
+    // Paginated tickets
+    const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
+    const paginatedTickets = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredTickets.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredTickets, currentPage]);
+
+    // Reset page when filters change
+    const handleFilterChange = (newFilters) => {
+        setFilters(newFilters);
+        setCurrentPage(1);
+    };
 
     const fetchData = async () => {
         try {
@@ -52,6 +84,7 @@ function DeveloperDashboard() {
             Open: 'bg-blue-100 text-blue-700',
             InProgress: 'bg-yellow-100 text-yellow-700',
             Resolved: 'bg-green-100 text-green-700',
+            Reopened: 'bg-orange-100 text-orange-700',
             Closed: 'bg-gray-100 text-gray-700',
         };
         return styles[status] || 'bg-gray-100 text-gray-700';
@@ -80,6 +113,7 @@ function DeveloperDashboard() {
                         <span className="text-gray-500 hidden sm:inline">Developer Dashboard</span>
                     </div>
                     <div className="flex items-center gap-4">
+                        <NotificationBell basePath="/developer" />
                         <div className="flex items-center gap-2">
                             <span className="text-gray-700 font-medium">{user?.name}</span>
                             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
@@ -119,13 +153,23 @@ function DeveloperDashboard() {
                 {/* Tickets List */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900">My Assigned Tickets</h2>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-lg font-semibold text-gray-900">My Assigned Tickets</h2>
+                                <span className="text-sm text-gray-500">
+                                    Showing {paginatedTickets.length} of {filteredTickets.length} tickets
+                                </span>
+                            </div>
+                            <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
+                        </div>
                     </div>
 
                     {loading ? (
                         <div className="p-8 text-center text-gray-500">Loading tickets...</div>
                     ) : tickets.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">No tickets assigned to you</div>
+                    ) : filteredTickets.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">No tickets match your filters</div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full">
@@ -140,7 +184,7 @@ function DeveloperDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {tickets.map((ticket) => (
+                                    {paginatedTickets.map((ticket) => (
                                         <tr key={ticket.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 text-sm text-gray-900">#{ticket.id}</td>
                                             <td className="px-6 py-4 text-sm font-medium">
@@ -179,6 +223,17 @@ function DeveloperDashboard() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {!loading && filteredTickets.length > 0 && (
+                        <div className="px-6 py-4 border-t border-gray-200">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                            />
                         </div>
                     )}
                 </div>
