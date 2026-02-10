@@ -81,7 +81,7 @@ function NotificationBell({ basePath = '/user' }) {
             {/* Bell Icon Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                 aria-label="Notifications"
             >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,21 +98,21 @@ function NotificationBell({ basePath = '/user' }) {
 
                 {/* Connection indicator */}
                 {isConnected && (
-                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-white"></span>
+                    <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-slate-800"></span>
                 )}
             </button>
 
             {/* Dropdown */}
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 z-50 overflow-hidden">
                     {/* Header */}
-                    <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                        <h3 className="font-semibold text-gray-900">Notifications</h3>
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-700/50">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                         {unreadCount > 0 && (
                             <button
                                 onClick={handleMarkAllAsRead}
                                 disabled={loading}
-                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
+                                className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium disabled:opacity-50"
                             >
                                 Mark all read
                             </button>
@@ -122,7 +122,7 @@ function NotificationBell({ basePath = '/user' }) {
                     {/* Notification List */}
                     <div className="max-h-96 overflow-y-auto">
                         {notifications.length === 0 ? (
-                            <div className="px-4 py-8 text-center text-gray-500">
+                            <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                 No notifications yet
                             </div>
                         ) : (
@@ -130,21 +130,21 @@ function NotificationBell({ basePath = '/user' }) {
                                 <button
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
-                                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors ${!notification.isRead ? 'bg-blue-50' : ''
+                                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 last:border-b-0 transition-colors ${!notification.isRead ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                                         }`}
                                 >
                                     <div className="flex gap-3">
                                         <span className="text-lg">{getNotificationIcon(notification.type)}</span>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-sm ${!notification.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                                            <p className={`text-sm ${!notification.isRead ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                                                 {notification.message}
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 {formatTime(notification.createdAt)}
                                             </p>
                                         </div>
                                         {!notification.isRead && (
-                                            <span className="w-2 h-2 bg-indigo-600 rounded-full mt-2"></span>
+                                            <span className="w-2 h-2 bg-indigo-600 dark:bg-indigo-400 rounded-full mt-2"></span>
                                         )}
                                     </div>
                                 </button>

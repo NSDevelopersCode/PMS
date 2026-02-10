@@ -1,20 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getTickets } from '../services/ticketService';
-import NotificationBell from '../components/NotificationBell';
+import { getProjects } from '../services/projectService';
 import TicketFilters from '../components/TicketFilters';
 import Pagination from '../components/Pagination';
 
 function EndUserDashboard() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
+    const { isDark } = useTheme();
     const navigate = useNavigate();
     const [tickets, setTickets] = useState([]);
+    const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     // Filter and pagination state
-    const [filters, setFilters] = useState({ search: '', status: 'All', priority: 'All' });
+    const [filters, setFilters] = useState({ search: '', status: 'All', priority: 'All', projectId: 'All' });
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
 
@@ -25,7 +28,8 @@ function EndUserDashboard() {
                 ticket.title.toLowerCase().includes(filters.search.toLowerCase());
             const matchesStatus = filters.status === 'All' || ticket.status === filters.status;
             const matchesPriority = filters.priority === 'All' || ticket.priority === filters.priority;
-            return matchesSearch && matchesStatus && matchesPriority;
+            const matchesProject = filters.projectId === 'All' || ticket.projectId === parseInt(filters.projectId);
+            return matchesSearch && matchesStatus && matchesPriority && matchesProject;
         });
     }, [tickets, filters]);
 
@@ -44,8 +48,12 @@ function EndUserDashboard() {
 
     const fetchData = async () => {
         try {
-            const data = await getTickets();
-            setTickets(data);
+            const [ticketData, projectData] = await Promise.all([
+                getTickets(),
+                getProjects()
+            ]);
+            setTickets(ticketData);
+            setProjects(projectData);
         } catch (err) {
             setError('Failed to load tickets');
             console.error(err);
@@ -65,42 +73,17 @@ function EndUserDashboard() {
 
     const getStatusBadge = (status) => {
         const styles = {
-            Open: 'bg-blue-100 text-blue-700',
-            InProgress: 'bg-yellow-100 text-yellow-700',
-            Resolved: 'bg-green-100 text-green-700',
-            Reopened: 'bg-orange-100 text-orange-700',
-            Closed: 'bg-gray-100 text-gray-700',
+            Open: isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700',
+            InProgress: isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-700',
+            Resolved: isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700',
+            Reopened: isDark ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-700',
+            Closed: isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700',
         };
-        return styles[status] || 'bg-gray-100 text-gray-700';
+        return styles[status] || (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700');
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-gray-900">PMS</h1>
-                        <span className="text-gray-500 hidden sm:inline">My Dashboard</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <NotificationBell basePath="/user" />
-                        <div className="flex items-center gap-2">
-                            <span className="text-gray-700 font-medium">{user?.name}</span>
-                            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
-                                End User
-                            </span>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors"
-                        >
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </header>
-
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Quick Stats */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 mb-8 text-white flex justify-between items-center">
@@ -119,26 +102,26 @@ function EndUserDashboard() {
                 </div>
 
                 {/* Tickets List */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
                         <div className="flex flex-col gap-4">
                             <div className="flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-gray-900">My Tickets</h2>
-                                <span className="text-sm text-gray-500">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My Tickets</h2>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
                                     Showing {paginatedTickets.length} of {filteredTickets.length} tickets
                                 </span>
                             </div>
-                            <TicketFilters filters={filters} onFilterChange={handleFilterChange} />
+                            <TicketFilters filters={filters} onFilterChange={handleFilterChange} showProject={true} projects={projects} />
                         </div>
                     </div>
 
                     {loading ? (
-                        <div className="p-8 text-center text-gray-500">Loading tickets...</div>
+                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">Loading tickets...</div>
                     ) : error ? (
-                        <div className="p-8 text-center text-red-500">{error}</div>
+                        <div className="p-8 text-center text-red-500 dark:text-red-400">{error}</div>
                     ) : tickets.length === 0 ? (
                         <div className="p-8 text-center">
-                            <p className="text-gray-500 mb-4">You haven't created any tickets yet</p>
+                            <p className="text-gray-500 dark:text-gray-400 mb-4">You haven't created any tickets yet</p>
                             <Link
                                 to="/user/create-ticket"
                                 className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
@@ -147,17 +130,17 @@ function EndUserDashboard() {
                             </Link>
                         </div>
                     ) : filteredTickets.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">No tickets match your filters</div>
+                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">No tickets match your filters</div>
                     ) : (
-                        <div className="divide-y divide-gray-200">
+                        <div className="divide-y divide-gray-200 dark:divide-slate-700">
                             {paginatedTickets.map((ticket) => (
-                                <div key={ticket.id} className="px-6 py-4 hover:bg-gray-50">
+                                <div key={ticket.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-slate-700/50">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <a href={`/user/tickets/${ticket.id}`} className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline">
+                                            <a href={`/user/tickets/${ticket.id}`} className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline">
                                                 {ticket.title}
                                             </a>
-                                            <p className="text-sm text-gray-500 mt-1">
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                                 {ticket.projectName} • Created {new Date(ticket.createdAt).toLocaleDateString()}
                                             </p>
                                         </div>
@@ -166,7 +149,7 @@ function EndUserDashboard() {
                                         </span>
                                     </div>
                                     {ticket.description && (
-                                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{ticket.description}</p>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">{ticket.description}</p>
                                     )}
                                 </div>
                             ))}
@@ -175,7 +158,7 @@ function EndUserDashboard() {
 
                     {/* Pagination */}
                     {!loading && filteredTickets.length > 0 && (
-                        <div className="px-6 py-4 border-t border-gray-200">
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-slate-700">
                             <Pagination
                                 currentPage={currentPage}
                                 totalPages={totalPages}

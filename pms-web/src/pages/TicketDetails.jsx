@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getTicketById, getTicketMessages, sendTicketMessage, updateTicketStatus, closeTicket, reopenTicket, downloadAttachment } from '../services/ticketService';
+import TicketHistory from '../components/TicketHistory';
 
 // Allowed file extensions
 const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf', '.txt', '.log', '.json'];
@@ -12,6 +14,7 @@ function TicketDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isDark } = useTheme();
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -184,23 +187,23 @@ function TicketDetails() {
 
     const getStatusBadge = (status) => {
         const styles = {
-            Open: 'bg-blue-100 text-blue-700',
-            InProgress: 'bg-yellow-100 text-yellow-700',
-            Resolved: 'bg-green-100 text-green-700',
-            Reopened: 'bg-purple-100 text-purple-700',
-            Closed: 'bg-gray-100 text-gray-700',
+            Open: isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700',
+            InProgress: isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-700',
+            Resolved: isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700',
+            Reopened: isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700',
+            Closed: isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700',
         };
-        return styles[status] || 'bg-gray-100 text-gray-700';
+        return styles[status] || (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700');
     };
 
     const getPriorityBadge = (priority) => {
         const styles = {
-            Low: 'bg-gray-100 text-gray-600',
-            Medium: 'bg-blue-100 text-blue-600',
-            High: 'bg-orange-100 text-orange-600',
-            Critical: 'bg-red-100 text-red-600',
+            Low: isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600',
+            Medium: isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-600',
+            High: isDark ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-600',
+            Critical: isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-600',
         };
-        return styles[priority] || 'bg-gray-100 text-gray-600';
+        return styles[priority] || (isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600');
     };
 
     const isClosed = ticket?.status === 'Closed';
@@ -222,31 +225,31 @@ function TicketDetails() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-gray-500">Loading ticket...</div>
+            <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
+                <div className="text-gray-500 dark:text-gray-400">Loading ticket...</div>
             </div>
         );
     }
 
     if (!ticket) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
                 <div className="text-center">
-                    <p className="text-red-500 mb-4">{error || 'Ticket not found'}</p>
-                    <Link to={backPath} className="text-indigo-600 hover:text-indigo-800">← Back to Dashboard</Link>
+                    <p className="text-red-500 dark:text-red-400 mb-4">{error || 'Ticket not found'}</p>
+                    <Link to={backPath} className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">← Back to Dashboard</Link>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
             {/* Header */}
-            <header className="bg-white shadow-sm border-b border-gray-200">
+            <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <Link to={backPath} className="text-gray-500 hover:text-gray-700">← Back</Link>
-                        <h1 className="text-lg font-bold text-gray-900">Ticket #{ticket.id}</h1>
+                        <Link to={backPath} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">← Back</Link>
+                        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Ticket #{ticket.id}</h1>
                     </div>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(ticket.status)}`}>
                         {ticket.status}
@@ -256,7 +259,7 @@ function TicketDetails() {
 
             <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                    <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4">
                         {error}
                         <button onClick={() => setError('')} className="ml-2">×</button>
                     </div>
@@ -264,7 +267,7 @@ function TicketDetails() {
 
                 {/* Archived Banner */}
                 {isArchived && (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
+                    <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
                         <span className="text-lg">📦</span>
                         <span>This ticket is archived and read-only. No actions can be performed.</span>
                     </div>
@@ -273,54 +276,54 @@ function TicketDetails() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Ticket Info */}
                     <div className="lg:col-span-1 space-y-4">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">{ticket.title}</h2>
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-5">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{ticket.title}</h2>
 
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Project</span>
-                                    <span className="text-gray-900 font-medium">{ticket.projectName}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Project</span>
+                                    <span className="text-gray-900 dark:text-white font-medium">{ticket.projectName}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Type</span>
-                                    <span className="text-gray-900">{ticket.type === 'Bug' ? '🐛 Bug' : '✨ Feature'}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Type</span>
+                                    <span className="text-gray-900 dark:text-gray-200">{ticket.type === 'Bug' ? '🐛 Bug' : '✨ Feature'}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-gray-500">Priority</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Priority</span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPriorityBadge(ticket.priority)}`}>
                                         {ticket.priority}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Created By</span>
-                                    <span className="text-gray-900">{ticket.createdByUserName}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Created By</span>
+                                    <span className="text-gray-900 dark:text-gray-200">{ticket.createdByUserName}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Assigned To</span>
-                                    <span className="text-gray-900">{ticket.assignedDeveloperName || '—'}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Assigned To</span>
+                                    <span className="text-gray-900 dark:text-gray-200">{ticket.assignedDeveloperName || '—'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">Created</span>
-                                    <span className="text-gray-900">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">Created</span>
+                                    <span className="text-gray-900 dark:text-gray-200">{new Date(ticket.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
 
                             {ticket.description && (
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                    <p className="text-sm text-gray-600">{ticket.description}</p>
+                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{ticket.description}</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Action Buttons */}
                         {!isClosed && (canResolve || canStartProgress || canAcceptClose || canRequestChanges || canAdminClose) && (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-4 space-y-3">
                                 {/* Developer: Start Progress on Reopened ticket */}
                                 {canStartProgress && (
                                     <button
                                         onClick={handleStartProgress}
                                         disabled={actionLoading}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-800 text-white font-semibold py-2.5 rounded-lg transition-colors"
                                     >
                                         {actionLoading ? 'Updating...' : '▶ Start Progress'}
                                     </button>
@@ -330,7 +333,7 @@ function TicketDetails() {
                                     <button
                                         onClick={handleResolve}
                                         disabled={actionLoading}
-                                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 dark:disabled:bg-green-800 text-white font-semibold py-2.5 rounded-lg transition-colors"
                                     >
                                         {actionLoading ? 'Resolving...' : '✓ Mark as Resolved'}
                                     </button>
@@ -340,7 +343,7 @@ function TicketDetails() {
                                     <button
                                         onClick={() => setShowCloseModal(true)}
                                         disabled={actionLoading}
-                                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 dark:disabled:bg-green-800 text-white font-semibold py-2.5 rounded-lg transition-colors"
                                     >
                                         {actionLoading ? 'Closing...' : '✓ Accept & Close'}
                                     </button>
@@ -371,15 +374,15 @@ function TicketDetails() {
 
                     {/* Chat Section */}
                     <div className="lg:col-span-2">
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-[500px]">
-                            <div className="px-5 py-3 border-b border-gray-200">
-                                <h3 className="font-semibold text-gray-900">Conversation</h3>
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col h-[500px]">
+                            <div className="px-5 py-3 border-b border-gray-200 dark:border-slate-700">
+                                <h3 className="font-semibold text-gray-900 dark:text-white">Conversation</h3>
                             </div>
 
                             {/* Messages */}
                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 {messages.length === 0 ? (
-                                    <div className="text-center text-gray-400 py-8">
+                                    <div className="text-center text-gray-400 dark:text-gray-500 py-8">
                                         No messages yet. Start the conversation!
                                     </div>
                                 ) : (
@@ -393,7 +396,7 @@ function TicketDetails() {
                                                 <div className={`max-w-[75%] ${isOwnMessage ? 'order-2' : ''}`}>
                                                     <div className={`px-4 py-2 rounded-2xl ${isOwnMessage
                                                         ? 'bg-indigo-600 text-white rounded-br-md'
-                                                        : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                                                        : 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md'
                                                         }`}>
                                                         {msg.message && <p className="text-sm">{msg.message}</p>}
                                                         {/* Attachments */}
@@ -406,11 +409,11 @@ function TicketDetails() {
                                                                             {isImage ? (
                                                                                 <button
                                                                                     onClick={() => handleDownload(att)}
-                                                                                    className={`block rounded-lg overflow-hidden border ${isOwnMessage ? 'border-indigo-400' : 'border-gray-300'} hover:opacity-80 transition-opacity`}
+                                                                                    className={`block rounded-lg overflow-hidden border ${isOwnMessage ? 'border-indigo-400' : 'border-gray-300 dark:border-slate-600'} hover:opacity-80 transition-opacity`}
                                                                                 >
                                                                                     <div className="flex items-center gap-2 p-2">
                                                                                         <span className="text-lg">🖼️</span>
-                                                                                        <span className={`text-xs ${isOwnMessage ? 'text-indigo-100' : 'text-gray-600'}`}>
+                                                                                        <span className={`text-xs ${isOwnMessage ? 'text-indigo-100' : 'text-gray-600 dark:text-gray-400'}`}>
                                                                                             {att.originalFileName}
                                                                                         </span>
                                                                                     </div>
@@ -419,8 +422,8 @@ function TicketDetails() {
                                                                                 <button
                                                                                     onClick={() => handleDownload(att)}
                                                                                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isOwnMessage
-                                                                                            ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
-                                                                                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                                                        ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
+                                                                                        : 'bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 text-gray-700 dark:text-gray-200'
                                                                                         }`}
                                                                                 >
                                                                                     <span>📎</span>
@@ -435,14 +438,16 @@ function TicketDetails() {
                                                         )}
                                                     </div>
                                                     <div className={`flex items-center gap-2 mt-1 text-xs ${isOwnMessage ? 'justify-end' : ''}`}>
-                                                        <span className="text-gray-500">{msg.senderName}</span>
-                                                        <span className={`px-1.5 py-0.5 rounded text-xs ${msg.senderRole === 'Developer' ? 'bg-blue-50 text-blue-600' :
-                                                            msg.senderRole === 'Admin' ? 'bg-red-50 text-red-600' :
-                                                                'bg-green-50 text-green-600'
+                                                        <span className="text-gray-500 dark:text-gray-400">{msg.senderName}</span>
+                                                        <span className={`px-1.5 py-0.5 rounded text-xs ${msg.senderRole === 'Developer'
+                                                            ? (isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-600')
+                                                            : msg.senderRole === 'Admin'
+                                                                ? (isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-50 text-red-600')
+                                                                : (isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-50 text-green-600')
                                                             }`}>
                                                             {msg.senderRole}
                                                         </span>
-                                                        <span className="text-gray-400">
+                                                        <span className="text-gray-400 dark:text-gray-500">
                                                             {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </span>
                                                     </div>
@@ -456,18 +461,18 @@ function TicketDetails() {
 
                             {/* Message Input */}
                             {(isClosed || isArchived) ? (
-                                <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 text-center text-gray-500 text-sm">
+                                <div className="px-5 py-3 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50 text-center text-gray-500 dark:text-gray-400 text-sm">
                                     {isArchived ? 'This ticket is archived.' : 'This ticket is closed.'} Chat is read-only.
                                 </div>
                             ) : (
-                                <div className="border-t border-gray-200">
+                                <div className="border-t border-gray-200 dark:border-slate-700">
                                     {/* Selected Files Preview */}
                                     {selectedFiles.length > 0 && (
-                                        <div className="px-4 py-2 bg-gray-50 flex flex-wrap gap-2">
+                                        <div className="px-4 py-2 bg-gray-50 dark:bg-slate-700/50 flex flex-wrap gap-2">
                                             {selectedFiles.map((file, index) => (
-                                                <div key={index} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-gray-200 text-xs">
+                                                <div key={index} className="flex items-center gap-1 bg-white dark:bg-slate-600 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-500 text-xs">
                                                     <span>{file.type.startsWith('image/') ? '🖼️' : '📎'}</span>
-                                                    <span className="max-w-[100px] truncate">{file.name}</span>
+                                                    <span className="max-w-[100px] truncate text-gray-700 dark:text-gray-200">{file.name}</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => removeFile(index)}
@@ -491,7 +496,7 @@ function TicketDetails() {
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-full transition-colors"
+                                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                                             title="Attach file"
                                         >
                                             📎
@@ -501,12 +506,12 @@ function TicketDetails() {
                                             value={newMessage}
                                             onChange={(e) => setNewMessage(e.target.value)}
                                             placeholder="Type a message..."
-                                            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm"
+                                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                                         />
                                         <button
                                             type="submit"
                                             disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending}
-                                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-5 py-2 rounded-full font-medium text-sm transition-colors"
+                                            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 dark:disabled:bg-indigo-800 text-white px-5 py-2 rounded-full font-medium text-sm transition-colors"
                                         >
                                             {sending ? '...' : 'Send'}
                                         </button>
@@ -516,14 +521,19 @@ function TicketDetails() {
                         </div>
                     </div>
                 </div>
+
+                {/* Ticket History Section */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden mt-6">
+                    <TicketHistory ticketId={parseInt(id)} />
+                </div>
             </main>
 
             {/* Reopen Modal */}
             {showReopenModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4">Request Changes</h3>
-                        <p className="text-gray-600 mb-4 text-sm">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Request Changes</h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
                             Please describe why you are requesting changes. This will reopen the ticket for the developer.
                         </p>
 
@@ -531,7 +541,7 @@ function TicketDetails() {
                             value={reopenComment}
                             onChange={(e) => setReopenComment(e.target.value)}
                             placeholder="Explain what needs valid fix or changes..."
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none mb-6 h-32 resize-none"
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none mb-6 h-32 resize-none bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                             autoFocus
                         />
 
@@ -542,7 +552,7 @@ function TicketDetails() {
                                     setReopenComment('');
                                 }}
                                 disabled={actionLoading}
-                                className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                                className="px-5 py-2.5 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
@@ -561,15 +571,15 @@ function TicketDetails() {
             {/* Close Modal with Optional Rating */}
             {showCloseModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-4">Accept & Close Ticket</h3>
-                        <p className="text-gray-600 mb-6 text-sm">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-6">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Accept & Close Ticket</h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
                             The ticket will be marked as closed. You can optionally rate your experience.
                         </p>
 
                         {/* Star Rating */}
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 How satisfied are you? <span className="text-gray-400 font-normal">(optional)</span>
                             </label>
                             <div className="flex gap-2">
@@ -578,14 +588,14 @@ function TicketDetails() {
                                         key={star}
                                         type="button"
                                         onClick={() => setRating(rating === star ? 0 : star)}
-                                        className={`text-3xl transition-colors ${rating >= star ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-200'}`}
+                                        className={`text-3xl transition-colors ${rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600 hover:text-yellow-200'}`}
                                     >
                                         ★
                                     </button>
                                 ))}
                             </div>
                             {rating > 0 && (
-                                <p className="text-sm text-gray-500 mt-1">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                     {rating === 1 && 'Poor'}
                                     {rating === 2 && 'Fair'}
                                     {rating === 3 && 'Good'}
@@ -598,14 +608,14 @@ function TicketDetails() {
                         {/* Comment */}
                         {rating > 0 && (
                             <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Any feedback? <span className="text-gray-400 font-normal">(optional)</span>
                                 </label>
                                 <textarea
                                     value={ratingComment}
                                     onChange={(e) => setRatingComment(e.target.value)}
                                     placeholder="Share your thoughts about this resolution..."
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none h-24 resize-none"
+                                    className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none h-24 resize-none bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                                 />
                             </div>
                         )}
@@ -618,7 +628,7 @@ function TicketDetails() {
                                     setRatingComment('');
                                 }}
                                 disabled={actionLoading}
-                                className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                                className="px-5 py-2.5 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>

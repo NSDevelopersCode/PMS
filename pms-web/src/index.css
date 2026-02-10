@@ -1,1 +1,95 @@
 @import "tailwindcss";
+
+/* Enable dark mode with class strategy */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* CSS Custom Properties for Theme */
+:root {
+    /* Light theme colors */
+    --bg-primary: #f9fafb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f3f4f6;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    --border-color: #e5e7eb;
+    --border-light: #f3f4f6;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --accent-bg: #eef2ff;
+    --accent-text: #4338ca;
+}
+
+.dark {
+    /* Dark theme colors */
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --border-color: #334155;
+    --border-light: #1e293b;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --accent-bg: #312e81;
+    --accent-text: #a5b4fc;
+}
+
+/* Theme transition */
+* {
+    transition-property: background-color, border-color, color;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
+}
+
+/* Auth Page Animations */
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    25% {
+        transform: translate(10px, -15px) scale(1.05);
+    }
+
+    50% {
+        transform: translate(-5px, 10px) scale(0.95);
+    }
+
+    75% {
+        transform: translate(-15px, -5px) scale(1.02);
+    }
+}
+
+@keyframes float-delayed {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    25% {
+        transform: translate(-15px, 10px) scale(0.98);
+    }
+
+    50% {
+        transform: translate(10px, -10px) scale(1.05);
+    }
+
+    75% {
+        transform: translate(5px, 15px) scale(0.97);
+    }
+}
+
+.floating-orb {
+    animation: float 15s ease-in-out infinite;
+}
+
+.floating-orb-delayed {
+    animation: float-delayed 18s ease-in-out infinite;
+}
+
+.auth-page {
+    background-attachment: fixed;
+}

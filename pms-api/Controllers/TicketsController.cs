@@ -481,7 +481,8 @@ namespace PMS.API.Controllers
         }
 
         /// <summary>
-        /// Get ticket history/audit trail
+        /// Get ticket history/audit trail with role-based filtering
+        /// Admin sees all, Developer sees operational events, EndUser sees external-safe events
         /// </summary>
         [HttpGet("{id}/history")]
         public async Task<ActionResult<IEnumerable<TicketHistoryDto>>> GetTicketHistory(int id)
@@ -499,10 +500,29 @@ namespace PMS.API.Controllers
             if (userRole == "EndUser" && ticket.CreatedByUserId != userId)
                 return Forbid();
 
+            // Define which actions each role can see
+            var allowedActions = userRole switch
+            {
+                "Admin" => Enum.GetValues<TicketAction>().ToList(), // All actions
+                "Developer" => new List<TicketAction>
+                {
+                    TicketAction.Created, TicketAction.Assigned, TicketAction.Reassigned,
+                    TicketAction.StatusChanged, TicketAction.Resolved, TicketAction.Closed,
+                    TicketAction.Reopened, TicketAction.AttachmentAdded
+                },
+                "EndUser" => new List<TicketAction>
+                {
+                    TicketAction.Created, TicketAction.Assigned, TicketAction.StatusChanged,
+                    TicketAction.Resolved, TicketAction.Closed, TicketAction.Reopened,
+                    TicketAction.SatisfactionRated
+                },
+                _ => new List<TicketAction>()
+            };
+
             var history = await _context.TicketHistories
-                .Where(h => h.TicketId == id)
+                .Where(h => h.TicketId == id && allowedActions.Contains(h.Action))
                 .Include(h => h.ChangedByUser)
-                .OrderByDescending(h => h.ChangedAt)
+                .OrderBy(h => h.ChangedAt) // Chronological: oldest first
                 .Select(h => new TicketHistoryDto
                 {
                     Id = h.Id,
@@ -512,6 +532,7 @@ namespace PMS.API.Controllers
                     Comments = h.Comments,
                     ChangedByUserId = h.ChangedByUserId,
                     ChangedByUserName = h.ChangedByUser.Name,
+                    ChangedByUserRole = h.ChangedByUser.Role.ToString(),
                     ChangedAt = h.ChangedAt
                 })
                 .ToListAsync();
@@ -939,6 +960,7 @@ namespace PMS.API.Controllers
         public string? Comments { get; set; }
         public int ChangedByUserId { get; set; }
         public string ChangedByUserName { get; set; } = string.Empty;
+        public string ChangedByUserRole { get; set; } = string.Empty;
         public DateTime ChangedAt { get; set; }
     }
 

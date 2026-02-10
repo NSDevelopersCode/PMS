@@ -16,6 +16,10 @@ namespace PMS.API.Models
         public UserRole Role { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        
+        // PIN unlock fields
+        public string? PinHash { get; set; }
+        public bool IsPinEnabled { get; set; } = false;
 
         // Navigation properties
         public ICollection<Project> CreatedProjects { get; set; } = new List<Project>();

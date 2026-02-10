@@ -13,7 +13,15 @@ namespace PMS.API.Services
     {
         Task<AuthResponseDto> RegisterAsync(RegisterDto registerDto);
         Task<AuthResponseDto> LoginAsync(LoginDto loginDto);
+        Task<bool> VerifyPasswordAsync(int userId, string password);
+        Task<bool> ChangePasswordAsync(int userId, string newPassword);
         string GenerateJwtToken(User user);
+        
+        // PIN methods
+        Task<(bool success, string message)> SetupPinAsync(int userId, string currentPassword, string pin);
+        Task<bool> VerifyPinAsync(int userId, string pin);
+        Task<(bool success, string message)> DisablePinAsync(int userId, string currentPassword);
+        Task<bool> GetPinStatusAsync(int userId);
     }
 
     public class AuthService : IAuthService
@@ -136,6 +144,80 @@ namespace PMS.API.Services
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public async Task<bool> VerifyPasswordAsync(int userId, string password)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return false;
+
+            return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+        }
+
+        public async Task<bool> ChangePasswordAsync(int userId, string newPassword)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return false;
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // PIN methods
+        public async Task<(bool success, string message)> SetupPinAsync(int userId, string currentPassword, string pin)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return (false, "User not found or inactive");
+
+            // Verify current password
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+                return (false, "Invalid password");
+
+            // Validate PIN format (4 digits)
+            if (string.IsNullOrEmpty(pin) || pin.Length != 4 || !pin.All(char.IsDigit))
+                return (false, "PIN must be exactly 4 digits");
+
+            // Hash and store PIN
+            user.PinHash = BCrypt.Net.BCrypt.HashPassword(pin);
+            user.IsPinEnabled = true;
+            await _context.SaveChangesAsync();
+            return (true, "PIN setup successful");
+        }
+
+        public async Task<bool> VerifyPinAsync(int userId, string pin)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive || !user.IsPinEnabled || string.IsNullOrEmpty(user.PinHash))
+                return false;
+
+            return BCrypt.Net.BCrypt.Verify(pin, user.PinHash);
+        }
+
+        public async Task<(bool success, string message)> DisablePinAsync(int userId, string currentPassword)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+                return (false, "User not found or inactive");
+
+            // Verify current password
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+                return (false, "Invalid password");
+
+            // Disable PIN
+            user.PinHash = null;
+            user.IsPinEnabled = false;
+            await _context.SaveChangesAsync();
+            return (true, "PIN disabled successfully");
+        }
+
+        public async Task<bool> GetPinStatusAsync(int userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            return user?.IsPinEnabled ?? false;
         }
 
         private static UserDto MapToUserDto(User user)

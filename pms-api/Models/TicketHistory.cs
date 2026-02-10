@@ -12,7 +12,8 @@ namespace PMS.API.Models
         Reopened,
         Archived,
         Unarchived,
-        AttachmentAdded
+        AttachmentAdded,
+        SatisfactionRated
     }
 
     /// <summary>

@@ -109,6 +109,38 @@ export const isAuthenticated = () => {
     return !isTokenExpired(token);
 };
 
+/**
+ * Setup a 4-digit PIN for screen unlock
+ */
+export const setupPin = async (currentPassword, pin) => {
+    const response = await api.post('/auth/setup-pin', { currentPassword, pin });
+    return response.data;
+};
+
+/**
+ * Verify PIN for screen unlock
+ */
+export const verifyPin = async (pin) => {
+    const response = await api.post('/auth/verify-pin', { pin });
+    return response.data;
+};
+
+/**
+ * Disable PIN for screen unlock
+ */
+export const disablePin = async (currentPassword) => {
+    const response = await api.post('/auth/disable-pin', { currentPassword });
+    return response.data;
+};
+
+/**
+ * Get PIN status (enabled/disabled)
+ */
+export const getPinStatus = async () => {
+    const response = await api.get('/auth/pin-status');
+    return response.data;
+};
+
 export default {
     register,
     login,
@@ -117,4 +149,9 @@ export default {
     getToken,
     isAuthenticated,
     decodeToken,
+    setupPin,
+    verifyPin,
+    disablePin,
+    getPinStatus,
 };
+
